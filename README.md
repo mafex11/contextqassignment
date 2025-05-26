@@ -31,12 +31,14 @@ npm --version       # Should show npm 6+
 
 ## 🚀 Quick Start Guide
 
-### ONLY SCRAPER RUN
+### ONLY SCRAPER CLI RUN
+
 ### Step 1: just create an venv and do pip install-r requirements.txt
 then from the root directory run python src/main.py
 you'll see the logs and everything.
 
 ### FULL STACK APPROACH
+
 ### Step 1: Clone/Download the Project
 ```bash
 # If using Git
