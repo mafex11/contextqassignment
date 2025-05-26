@@ -1,0 +1,27 @@
+{
+  "name": "global-news-hub",
+  "version": "1.0.0",
+  "description": "RSS News Scraper with React Frontend and Flask Backend",
+  "scripts": {
+    "start-backend": "python src/api.py",
+    "start-frontend": "cd frontend && npm start",
+    "start": "concurrently \"npm run start-backend\" \"npm run start-frontend\"",
+    "scrape": "python src/main.py",
+    "install-frontend": "cd frontend && npm install",
+    "install-backend": "pip install -r requirements.txt",
+    "install-all": "npm run install-backend && npm run install-frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "rss",
+    "news",
+    "scraper",
+    "react",
+    "flask",
+    "python"
+  ],
+  "author": "RSS News Scraper",
+  "license": "MIT"
+} 
