@@ -7,5 +7,5 @@ Flask==3.0.2
 flask-cors==4.0.0
 SQLAlchemy==2.0.27
 schedule==1.2.1
-tqdm==4.66.ls
+tqdm==4.66.1
 flask_cors==4.0.0
