@@ -24,7 +24,8 @@ scraper_status = {
     'last_run': None,
     'articles_scraped': 0,
     'errors': [],
-    'logs': []
+    'logs': [],
+    'scraper_type': None  # 'regular' or 'historical'
 }
 
 # Thread-safe queue for real-time logs
@@ -44,9 +45,9 @@ def log_reader(pipe, log_type='stdout'):
                 # Add to logs
                 scraper_status['logs'].append(log_entry)
                 
-                # Keep only last 100 log entries to prevent memory issues
-                if len(scraper_status['logs']) > 100:
-                    scraper_status['logs'] = scraper_status['logs'][-100:]
+                # Keep only last 200 log entries to prevent memory issues (increased from 100)
+                if len(scraper_status['logs']) > 200:
+                    scraper_status['logs'] = scraper_status['logs'][-200:]
                 
                 # If it's an error, also add to errors
                 if log_type == 'stderr' and line.strip():
@@ -65,7 +66,8 @@ def run_scraper():
         scraper_status['running'] = True
         scraper_status['start_time'] = time.time()
         scraper_status['errors'] = []
-        scraper_status['logs'] = [f"[{datetime.now().strftime('%H:%M:%S')}] Scraper started..."]
+        scraper_status['logs'] = [f"[{datetime.now().strftime('%H:%M:%S')}] Regular scraper started..."]
+        scraper_status['scraper_type'] = 'regular'
         
         # Start the scraper process with real-time output
         scraper_process = subprocess.Popen(
@@ -102,21 +104,86 @@ def run_scraper():
         
         timestamp = datetime.now().strftime('%H:%M:%S')
         if return_code == 0:
-            scraper_status['logs'].append(f'[{timestamp}] Scraper completed successfully')
+            scraper_status['logs'].append(f'[{timestamp}] Regular scraper completed successfully')
         else:
-            error_msg = f'Scraper failed with return code {return_code}'
+            error_msg = f'Regular scraper failed with return code {return_code}'
             scraper_status['errors'].append(error_msg)
             scraper_status['logs'].append(f'[{timestamp}] {error_msg}')
             
     except Exception as e:
         timestamp = datetime.now().strftime('%H:%M:%S')
-        error_msg = f'Exception running scraper: {str(e)}'
+        error_msg = f'Exception running regular scraper: {str(e)}'
         scraper_status['errors'].append(error_msg)
         scraper_status['logs'].append(f'[{timestamp}] {error_msg}')
     
     finally:
         scraper_status['running'] = False
         scraper_status['last_run'] = time.time()
+        scraper_status['scraper_type'] = None
+        scraper_process = None
+
+def run_historical_scraper():
+    """Run the historical scraper in a separate thread with real-time logging"""
+    global scraper_status, scraper_process
+    
+    try:
+        scraper_status['running'] = True
+        scraper_status['start_time'] = time.time()
+        scraper_status['errors'] = []
+        scraper_status['logs'] = [f"[{datetime.now().strftime('%H:%M:%S')}] Historical scraper started..."]
+        scraper_status['scraper_type'] = 'historical'
+        
+        # Start the historical scraper process with real-time output
+        scraper_process = subprocess.Popen(
+            [sys.executable, 'src/historical_scraper.py'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,  # Line buffered
+            universal_newlines=True,
+            cwd=os.getcwd()
+        )
+        
+        # Start threads to read stdout and stderr in real-time
+        stdout_thread = threading.Thread(
+            target=log_reader, 
+            args=(scraper_process.stdout, 'stdout'),
+            daemon=True
+        )
+        stderr_thread = threading.Thread(
+            target=log_reader, 
+            args=(scraper_process.stderr, 'stderr'),
+            daemon=True
+        )
+        
+        stdout_thread.start()
+        stderr_thread.start()
+        
+        # Wait for process to complete
+        return_code = scraper_process.wait()
+        
+        # Wait for log threads to finish reading
+        stdout_thread.join(timeout=5)
+        stderr_thread.join(timeout=5)
+        
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        if return_code == 0:
+            scraper_status['logs'].append(f'[{timestamp}] Historical scraper completed successfully')
+        else:
+            error_msg = f'Historical scraper failed with return code {return_code}'
+            scraper_status['errors'].append(error_msg)
+            scraper_status['logs'].append(f'[{timestamp}] {error_msg}')
+            
+    except Exception as e:
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        error_msg = f'Exception running historical scraper: {str(e)}'
+        scraper_status['errors'].append(error_msg)
+        scraper_status['logs'].append(f'[{timestamp}] {error_msg}')
+    
+    finally:
+        scraper_status['running'] = False
+        scraper_status['last_run'] = time.time()
+        scraper_status['scraper_type'] = None
         scraper_process = None
 
 @app.route('/api/news')
@@ -267,6 +334,27 @@ def get_scraper_logs():
         'status': 'success',
         'logs': scraper_status['logs'],  # Return all current logs
         'errors': scraper_status['errors']
+    })
+
+@app.route('/api/scraper/historical', methods=['POST'])
+def start_historical_scraper():
+    """Start historical data collection"""
+    global scraper_status
+    
+    if scraper_status['running']:
+        return jsonify({
+            'status': 'error',
+            'message': 'Scraper is already running'
+        }), 400
+    
+    # Start historical scraper in background thread
+    thread = threading.Thread(target=run_historical_scraper)
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({
+        'status': 'success',
+        'message': 'Historical data collection started'
     })
 
 if __name__ == '__main__':
