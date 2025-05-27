@@ -98,8 +98,6 @@ MAX_RETRIES = 3        # Retry attempts for failed requests
 UPDATE_INTERVAL = 24   # Hours between automatic updates
 ```
 
-## 🛠️ Troubleshooting
-
 ## 🎯 Bonus Features Implemented
 
 - ✅ **Countries**: 65+ countries (20+ requirement)
